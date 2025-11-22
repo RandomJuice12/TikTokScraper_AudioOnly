@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TikTok Audio Downloader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui; text-align: center; padding: 50px; background: #000; color: white; }
+    input, button { padding: 12px; margin: 10px; font-size: 16px; width: 90%; max-width: 500px; }
+    button { background: #fe2c55; color: white; border: none; cursor: pointer; }
+    a { color: #fe2c55; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🎵 TikTok Audio Downloader</h1>
+  <input type="text" id="url" placeholder="Paste TikTok video URL here" />
+  <button onclick="getAudio()">Extract Audio</button>
+  <div id="result"></div>
+
+  <script>
+    async function getAudio() {
+      const url = document.getElementById('url').value.trim();
+      if (!url) return alert('Enter a URL');
+
+      const res = await fetch(`/api/tiktok-audio?url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+
+      if (!data.success) {
+        document.getElementById('result').innerHTML = `<p>❌ ${data.error}</p>`;
+        return;
+      }
+
+      document.getElementById('result').innerHTML = `
+        <h3>${data.title}</h3>
+        <p>by ${data.author}</p>
+        <audio controls src="${data.audioUrl}"></audio><br><br>
+        <a href="${data.downloadUrl}" download>⬇️ Download MP3</a>
+      `;
+    }
+  </script>
+</body>
+</html>
