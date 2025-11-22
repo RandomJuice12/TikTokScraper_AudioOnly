@@ -1,7 +1,7 @@
 import axios from "axios";
 import NodeCache from "node-cache";
 
-const cache = new NodeCache({ stdTTL: 86400 }); // 24h cache
+const cache = new NodeCache({ stdTTL: parseInt(process.env.CACHE_TTL_SECONDS || 86400) });
 
 export default async function handler(req, res) {
   if (req.method !== "POST")
@@ -18,17 +18,20 @@ export default async function handler(req, res) {
     const apiKey = process.env.SCRAPERAPI_KEY;
     if (!apiKey) return res.status(500).json({ error: "Missing SCRAPERAPI_KEY" });
 
-    const params = { api_key: apiKey, url, render: true };
+    // Convert desktop URL to mobile URL for better scraping
+    const mobileUrl = url.replace("www.tiktok.com", "m.tiktok.com");
+
+    const params = { api_key: apiKey, url: mobileUrl, render: true };
     const response = await axios.get("https://api.scraperapi.com", {
       params,
-      timeout: 90000, // increase timeout to 90s
+      timeout: 60000, // 60s timeout
     });
 
     const html = response.data;
 
-    // 1️⃣ Try extracting audio from "music" JSON
+    // Mobile TikTok pages include audio URL in "music_play_url"
     let audioMatch =
-      html.match(/"music":\s*{[^}]*"playUrl":"(https?:\\\/\\\/[^"]+)"/) ||
+      html.match(/"music_play_url":"(https?:\\\/\\\/[^"]+)"/) ||
       html.match(/"playAddr":"(https?:\\\/\\\/[^"]+)"/); // fallback
 
     if (!audioMatch) {
@@ -37,12 +40,13 @@ export default async function handler(req, res) {
 
     const audio = audioMatch[1].replace(/\\\//g, "/");
 
-    // Extract title for display
+    // Extract title
     const titleMatch = html.match(/property="og:title" content="([^"]+)"/);
     const title = titleMatch ? titleMatch[1] : "TikTok Audio";
 
     const result = { audio, title };
     cache.set(cacheKey, result);
+
     res.status(200).json(result);
   } catch (err) {
     console.error("TikTok audio fetch error:", err.message);
